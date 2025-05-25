@@ -1,0 +1,100 @@
+<html>
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+      rel="stylesheet"
+      as="style"
+      onload="this.rel='stylesheet'"
+      href="https://fonts.googleapis.com/css2?display=swap&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900&amp;family=Space+Grotesk%3Awght%40400%3B500%3B700"
+    />
+
+    <title>Stitch Design</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  </head>
+  <body>
+    <div
+      class="relative flex size-full min-h-screen flex-col bg-[#f9fcf8] justify-between group/design-root overflow-x-hidden"
+      style='font-family: "Space Grotesk", "Noto Sans", sans-serif;'
+    >
+      <div>
+        <div class="flex items-center bg-[#f9fcf8] p-4 pb-2 justify-between">
+          <div class="text-[#121b0e] flex size-12 shrink-0 items-center" data-icon="X" data-size="24px" data-weight="regular">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+              <path
+                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+              ></path>
+            </svg>
+          </div>
+          <h2 class="text-[#121b0e] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Create Poll</h2>
+        </div>
+        <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+          <label class="flex flex-col min-w-40 flex-1">
+            <input
+              placeholder="Ask a question"
+              class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#121b0e] focus:outline-0 focus:ring-0 border border-[#d7e7d0] bg-[#f9fcf8] focus:border-[#d7e7d0] h-14 placeholder:text-[#67974e] p-[15px] text-base font-normal leading-normal"
+              value=""
+            />
+          </label>
+        </div>
+        <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+          <label class="flex flex-col min-w-40 flex-1">
+            <input
+              placeholder="Option 1"
+              class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#121b0e] focus:outline-0 focus:ring-0 border border-[#d7e7d0] bg-[#f9fcf8] focus:border-[#d7e7d0] h-14 placeholder:text-[#67974e] p-[15px] text-base font-normal leading-normal"
+              value=""
+            />
+          </label>
+        </div>
+        <div class="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+          <label class="flex flex-col min-w-40 flex-1">
+            <input
+              placeholder="Option 2"
+              class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#121b0e] focus:outline-0 focus:ring-0 border border-[#d7e7d0] bg-[#f9fcf8] focus:border-[#d7e7d0] h-14 placeholder:text-[#67974e] p-[15px] text-base font-normal leading-normal"
+              value=""
+            />
+          </label>
+        </div>
+        <div class="flex px-4 py-3 justify-start">
+          <button
+            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#ebf3e7] text-[#121b0e] text-sm font-bold leading-normal tracking-[0.015em]"
+          >
+            <span class="truncate">Add Option</span>
+          </button>
+        </div>
+        <h3 class="text-[#121b0e] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Poll Duration</h3>
+        <div class="flex flex-wrap gap-3 p-4">
+          <label
+            class="text-sm font-medium leading-normal flex items-center justify-center rounded-xl border border-[#d7e7d0] px-4 h-11 text-[#121b0e] has-[:checked]:border-[3px] has-[:checked]:px-3.5 has-[:checked]:border-[#4ab714] relative cursor-pointer"
+          >
+            1 day
+            <input type="radio" class="invisible absolute" name="08fa2731-3409-43f9-b6c3-8156e84cb587" />
+          </label>
+          <label
+            class="text-sm font-medium leading-normal flex items-center justify-center rounded-xl border border-[#d7e7d0] px-4 h-11 text-[#121b0e] has-[:checked]:border-[3px] has-[:checked]:px-3.5 has-[:checked]:border-[#4ab714] relative cursor-pointer"
+          >
+            3 days
+            <input type="radio" class="invisible absolute" name="08fa2731-3409-43f9-b6c3-8156e84cb587" />
+          </label>
+          <label
+            class="text-sm font-medium leading-normal flex items-center justify-center rounded-xl border border-[#d7e7d0] px-4 h-11 text-[#121b0e] has-[:checked]:border-[3px] has-[:checked]:px-3.5 has-[:checked]:border-[#4ab714] relative cursor-pointer"
+          >
+            7 days
+            <input type="radio" class="invisible absolute" name="08fa2731-3409-43f9-b6c3-8156e84cb587" />
+          </label>
+        </div>
+      </div>
+      <div>
+        <div class="flex px-4 py-3">
+          <button
+            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#4ab714] text-[#121b0e] text-base font-bold leading-normal tracking-[0.015em]"
+          >
+            <span class="truncate">Create Poll</span>
+          </button>
+        </div>
+        <div class="h-5 bg-[#f9fcf8]"></div>
+      </div>
+    </div>
+  </body>
+</html>

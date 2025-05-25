@@ -1,0 +1,27 @@
+# For more details on how to configure Wrangler, refer to:
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "polling-center-api"
+main = "src/index.js"
+compatibility_date = "2025-05-25"
+compatibility_flags = ["nodejs_compat_v2"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "polling-center-db"
+database_id = "e6b11228-912d-465b-a831-e4a644a5c242"
+
+[browser]
+binding = "BROWSER"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "polling-center-images"
+
+[[durable_objects.bindings]]
+name = "IMAGE_QUEUE"
+class_name = "ImageGenerationQueue"
+
+[[migrations]]
+tag = "v1"
+new_classes = [ "ImageGenerationQueue" ]
