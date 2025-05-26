@@ -103,6 +103,7 @@ export class ImageGenerationService {
           flex-direction: column;
           padding: 40px;
           position: relative;
+          overflow: hidden;
         }
         
         .header {
@@ -148,24 +149,28 @@ export class ImageGenerationService {
         .creator-name {
           font-weight: 600;
           color: #121b0e;
-          font-size: 28px;
+          font-size: 32px;
           line-height: 1.2;
         }
         
         .creator-username {
           color: #67974e;
-          font-size: 22px;
+          font-size: 24px;
           margin-top: 4px;
         }
         
         .poll-question {
-          font-size: 36px;
+          font-size: 40px;
           font-weight: 600;
           color: #121b0e;
           line-height: 1.2;
-          margin-bottom: 40px;
-          max-height: 200px;
+          margin-bottom: 30px;
+          max-height: 120px;
           overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
         }
         
         .results {
@@ -189,7 +194,7 @@ export class ImageGenerationService {
         
         .option-percentage {
           color: #4ab714;
-          font-size: 32px;
+          font-size: 36px;
           font-weight: 700;
         }
         
@@ -210,76 +215,60 @@ export class ImageGenerationService {
         
         .option-text {
           color: #121b0e;
-          font-size: 26px;
+          font-size: 28px;
           font-weight: 500;
           flex: 1;
         }
         
         .footer {
           margin-top: auto;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding-top: 30px;
-          border-top: 2px solid #d7e7d0;
-        }
-        
-        .vote-count {
-          color: #67974e;
-          font-size: 18px;
-          font-weight: 500;
-        }
-        
-        .total-votes {
-          color: #67974e;
-          font-size: 20px;
-          font-weight: 600;
-        }
-        
-        .time-ago {
-          color: #67974e;
-          font-size: 18px;
+          padding-bottom: 60px;
         }
         
         .watermark {
           position: absolute;
-          bottom: 30px;
+          bottom: 20px;
           right: 30px;
           color: #67974e;
-          font-size: 18px;
-          font-weight: 600;
+          font-size: 16px;
+          font-weight: 500;
         }
         
         .voters-section {
           margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid #d7e7d0;
+          margin-bottom: 20px;
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.6);
+          border-radius: 15px;
+          border: 1px solid #d7e7d0;
         }
         
         .voters-label {
           color: #67974e;
-          font-size: 16px;
-          font-weight: 500;
-          margin-bottom: 12px;
+          font-size: 22px;
+          font-weight: 600;
+          margin-bottom: 20px;
+          text-align: center;
         }
         
         .voters-grid {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 15px;
           align-items: center;
+          justify-content: center;
         }
         
         .voter-avatar {
-          width: 40px;
-          height: 40px;
+          width: 80px;
+          height: 80px;
           border-radius: 50%;
           background: #67974e;
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          border: 4px solid #ffffff;
+          box-shadow: 0 6px 12px rgba(0,0,0,0.2);
         }
         
         .voter-avatar-fallback {
@@ -292,7 +281,7 @@ export class ImageGenerationService {
           background: #67974e;
           color: white;
           font-weight: 600;
-          font-size: 14px;
+          font-size: 26px;
         }
       </style>
     </head>
@@ -315,11 +304,6 @@ export class ImageGenerationService {
         ${options}
       </div>
       
-      <div class="footer">
-        <div class="total-votes">${poll.total_votes} total votes</div>
-        <div class="time-ago">${poll.time_ago}</div>
-      </div>
-      
       ${voters.length > 0 ? `
         <div class="voters-section">
           <div class="voters-label">Recent voters</div>
@@ -332,6 +316,8 @@ export class ImageGenerationService {
           </div>
         </div>
       ` : ''}
+      
+      <div class="footer"></div>
       
       <div class="watermark">polling.center</div>
     </body>

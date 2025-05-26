@@ -21,6 +21,7 @@ export default function CreatePoll() {
   const [creationState, setCreationState] = useState('idle'); 
   // States: idle, creating, onchain, verifying, complete
   const [error, setError] = useState('');
+  const [currentPollId, setCurrentPollId] = useState(null);
 
   const addOption = () => {
     if (options.length < 10) {

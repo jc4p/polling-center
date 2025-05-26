@@ -12,7 +12,7 @@ import { useWeb3 } from '@/lib/web3Context';
 
 export function PollVoteClient({ poll, votes }) {
   const router = useRouter();
-  const { getAuthHeaders, isAuthenticated, user } = useAuth();
+  const { getAuthHeaders, isAuthenticated } = useAuth();
   const { pollsContract, isConnected } = useWeb3();
   const [selectedOption, setSelectedOption] = useState(0);
   const [votingState, setVotingState] = useState('idle'); 
@@ -25,13 +25,20 @@ export function PollVoteClient({ poll, votes }) {
   // Check if user has already voted (use database, not onchain)
   useEffect(() => {
     const checkVotingStatus = async () => {
-      if (!user) return;
+      if (!isAuthenticated) return;
       
       try {
-        // Use existing API to check if user voted
-        const response = await fetch(`/api/polls/${poll.id}/user-vote?fid=${user.fid}`);
+        // Use existing API to check if user voted (requires auth)
+        const response = await fetch(`/api/polls/${poll.id}/user-vote`, {
+          headers: getAuthHeaders()
+        });
         if (response.ok) {
           const data = await response.json();
+          if (data.hasVoted) {
+            // User has already voted, redirect to results
+            router.push(`/poll/${poll.id}/results`);
+            return;
+          }
           setHasVoted(data.hasVoted);
         }
       } catch (error) {
@@ -40,7 +47,7 @@ export function PollVoteClient({ poll, votes }) {
     };
 
     checkVotingStatus();
-  }, [user, poll.id]);
+  }, [isAuthenticated, poll.id, router, getAuthHeaders]);
 
   const handleVote = async () => {
     setError('');

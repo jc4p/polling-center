@@ -57,7 +57,7 @@ export async function verifyTransactionWithRetry(blockchain, transactionHash, ma
 
 export async function waitForTransactionConfirmation(blockchain, transactionHash, requiredConfirmations = 1) {
   const maxWaitTime = 300000 // 5 minutes max wait
-  const pollInterval = 2000 // Check every 2 seconds
+  const pollInterval = 250 // Check every 0.25 seconds
   const startTime = Date.now()
   
   while (Date.now() - startTime < maxWaitTime) {

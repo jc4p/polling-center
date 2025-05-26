@@ -539,6 +539,38 @@ pollsRouter.get('/:id/results', async (c) => {
   }
 })
 
+// GET /api/polls/:id/user-vote - Check if user has voted on poll (requires auth)
+pollsRouter.get('/:id/user-vote', async (c) => {
+  try {
+    // Apply auth middleware
+    const createAuth = c.get('createAuth')
+    if (createAuth) {
+      await createAuth()(c, async () => {})
+    }
+    
+    const user = getAuthenticatedUser(c)
+    const pollId = c.req.param('id')
+    const db = c.env.DB
+    
+    if (!db) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
+
+    // Check if user has voted on this poll using authenticated user's FID
+    const { results: [vote] } = await db.prepare(`
+      SELECT id, option_index FROM votes WHERE poll_id = ? AND voter_fid = ?
+    `).bind(pollId, user.fid).all()
+
+    return c.json({ 
+      hasVoted: !!vote,
+      userVote: vote ? { option_index: vote.option_index } : null
+    })
+  } catch (error) {
+    console.error('Error checking user vote:', error)
+    return c.json({ error: 'Failed to check user vote' }, 500)
+  }
+})
+
 // POST /api/polls/:id/react - Add emoji reaction (requires auth)
 pollsRouter.post('/:id/react', async (c) => {
   try {

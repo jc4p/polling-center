@@ -9,6 +9,7 @@ import { pollsRouter } from './routes/polls.js'
 import { votesRouter } from './routes/votes.js'
 import { adminRouter } from './routes/admin.js'
 import { imagesRouter } from './routes/images.js'
+import { debugRouter } from './routes/debug.js'
 import { ImageGenerationQueue } from './durable-objects/ImageGenerationQueue.js'
 
 const app = new Hono()
@@ -85,6 +86,7 @@ app.get('/', (c) => {
 app.route('/api/polls', pollsRouter)
 app.route('/api/votes', votesRouter)
 app.route('/api/admin', adminRouter)
+app.route('/api/debug', debugRouter)
 app.route('/api', imagesRouter)
 
 // Profile endpoint
