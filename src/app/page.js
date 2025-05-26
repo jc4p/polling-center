@@ -4,6 +4,31 @@ import { Button } from '@/components/ui/Button';
 import { HomeClient } from './HomeClient';
 import Link from 'next/link';
 
+export async function generateMetadata() {
+  const appUrl = process.env.NEXT_PUBLIC_FRAME_URL || "http://localhost:3000";
+
+  return {
+    title: "Polling Center",
+    description: "Onchain polling platform for Farcaster",
+    other: {
+      'fc:frame': {
+        version: "next",
+        imageUrl: "https://images.polling.center/polling_center_rectangle.png",
+        button: {
+          title: "Open Polling Center",
+          action: {
+            type: "launch_frame",
+            name: "Polling Center",
+            url: appUrl,
+            splashImageUrl: "https://images.polling.center/polling_center_square.png",
+            splashBackgroundColor: "#E9FFD8"
+          }
+        }
+      }
+    }
+  };
+}
+
 const API_URL = process.env.API_URL || 'http://localhost:8787/api';
 
 async function getPolls() {
