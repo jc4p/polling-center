@@ -143,7 +143,7 @@ export function ProfileClient() {
             <div className="space-y-4">
               {userPolls.map((poll) => (
                 <Link key={poll.id} href={`/poll/${poll.id}`}>
-                  <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors">
+                  <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors mb-4">
                     <h3 className="text-forest-900 font-medium mb-2 line-clamp-2">
                       {poll.question}
                     </h3>
@@ -176,7 +176,7 @@ export function ProfileClient() {
             <div className="space-y-4">
               {userVotes.map((vote) => (
                 <Link key={vote.id} href={`/poll/${vote.poll_id}`}>
-                  <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors">
+                  <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors mb-4">
                     <h3 className="text-forest-900 font-medium mb-2 line-clamp-2">
                       {vote.poll_question}
                     </h3>

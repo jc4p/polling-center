@@ -8,20 +8,31 @@ export function HomeClient({ initialPolls, initialError }) {
   const [polls, setPolls] = useState(initialPolls || []);
   const [error, setError] = useState(initialError);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(null);
 
-  const fetchPolls = async () => {
+  const fetchPolls = async (isAutoRefresh = false) => {
     try {
       setIsRefreshing(true);
+      setRefreshError(null);
       const response = await fetch('/api/polls?limit=10');
       if (!response.ok) {
         throw new Error('Failed to fetch polls');
       }
       const data = await response.json();
       setPolls(data.polls || []);
-      setError(null);
+      setError(null); // Clear any previous errors on success
     } catch (err) {
       console.error('Error fetching polls:', err);
-      setError(err.message);
+      if (isAutoRefresh) {
+        // For auto-refresh, don't replace the whole page with error
+        // Just show a temporary refresh error
+        setRefreshError(err.message);
+        // Clear refresh error after 5 seconds
+        setTimeout(() => setRefreshError(null), 5000);
+      } else {
+        // For manual refresh or initial load, show full error
+        setError(err.message);
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -29,13 +40,13 @@ export function HomeClient({ initialPolls, initialError }) {
 
   // Periodic refresh every 30 seconds
   useEffect(() => {
-    const interval = setInterval(fetchPolls, 30000);
+    const interval = setInterval(() => fetchPolls(true), 30000);
     return () => clearInterval(interval);
   }, []);
 
   // Manual refresh function
   const handleRefresh = () => {
-    fetchPolls();
+    fetchPolls(false);
   };
   if (error) {
     return (
@@ -61,6 +72,11 @@ export function HomeClient({ initialPolls, initialError }) {
             <span className="text-sm text-forest-600">
               {isRefreshing ? 'Refreshing...' : 'Auto-refreshes every 30s'}
             </span>
+            {refreshError && (
+              <span className="text-xs text-red-600 ml-2">
+                (Refresh failed)
+              </span>
+            )}
           </div>
           <button
             onClick={handleRefresh}
@@ -75,7 +91,7 @@ export function HomeClient({ initialPolls, initialError }) {
         <div className="space-y-6">
           {polls.map((poll) => (
             <Link key={poll.id} href={`/poll/${poll.id}`}>
-              <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors">
+              <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors mb-4">
                 <h3 className="text-forest-900 font-medium mb-2 line-clamp-2">
                   {poll.question}
                 </h3>

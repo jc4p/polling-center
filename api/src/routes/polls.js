@@ -94,7 +94,10 @@ pollsRouter.get('/', async (c) => {
       ${fromClause} 
       ${joinClause}
       ${whereClause}
-      ORDER BY p.created_at DESC
+      ORDER BY 
+        -- Sort by vote count first (popular polls), then by recency
+        p.total_votes DESC,
+        p.created_at DESC
       LIMIT ? OFFSET ?
     `
     params.push(query.limit, query.offset)

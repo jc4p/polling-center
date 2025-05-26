@@ -68,12 +68,11 @@ export function PollVoteClient({ poll: initialPoll, votes: initialVotes }) {
         });
         if (response.ok) {
           const data = await response.json();
-          if (data.hasVoted) {
-            // User has already voted, redirect to results
-            router.push(`/poll/${poll.id}/results`);
-            return;
-          }
           setHasVoted(data.hasVoted);
+          if (data.hasVoted && data.userVote) {
+            setUserVote(data.userVote);
+            setSelectedOption(data.userVote.option_index);
+          }
         }
       } catch (error) {
         console.error('Failed to check voting status:', error);
@@ -81,7 +80,7 @@ export function PollVoteClient({ poll: initialPoll, votes: initialVotes }) {
     };
 
     checkVotingStatus();
-  }, [isAuthenticated, poll.id, router, getAuthHeaders]);
+  }, [isAuthenticated, poll.id, getAuthHeaders]);
 
   const handleVote = async () => {
     setError('');
@@ -177,6 +176,15 @@ export function PollVoteClient({ poll: initialPoll, votes: initialVotes }) {
           </RadioOption>
         ))}
       </div>
+
+      {hasVoted && (
+        <div className="px-4 py-2">
+          <div className="bg-mint-50 border border-mint-200 rounded-lg p-3 text-center">
+            <p className="text-forest-900 font-medium">✅ You've already voted on this poll</p>
+            <p className="text-forest-600 text-sm mt-1">Your choice: {poll.options[userVote?.option_index]?.text}</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex px-4 py-3">
         <Button 
