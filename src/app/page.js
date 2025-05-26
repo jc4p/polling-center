@@ -11,7 +11,7 @@ export async function generateMetadata() {
     title: "Polling Center",
     description: "Onchain polling platform for Farcaster",
     other: {
-      'fc:frame': {
+      'fc:frame': JSON.stringify({
         version: "next",
         imageUrl: "https://images.polling.center/polling_center_rectangle.png",
         button: {
@@ -24,7 +24,7 @@ export async function generateMetadata() {
             splashBackgroundColor: "#E9FFD8"
           }
         }
-      }
+      })
     }
   };
 }
