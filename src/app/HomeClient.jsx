@@ -4,18 +4,22 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { pollsApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 export function HomeClient({ initialPolls, initialError }) {
+  const { getAuthHeaders, isAuthenticated, isLoading } = useAuth();
   const [polls, setPolls] = useState(initialPolls || []);
   const [error, setError] = useState(initialError);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(null);
+  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false);
 
   const fetchPolls = async (isAutoRefresh = false) => {
     try {
       setIsRefreshing(true);
       setRefreshError(null);
-      const data = await pollsApi.getPolls({ limit: 10 });
+      const authHeaders = isAuthenticated ? getAuthHeaders() : null;
+      const data = await pollsApi.getPolls({ limit: 10 }, authHeaders);
       setPolls(data.polls || []);
       setError(null); // Clear any previous errors on success
     } catch (err) {
@@ -35,16 +39,37 @@ export function HomeClient({ initialPolls, initialError }) {
     }
   };
 
-  // Periodic refresh every 30 seconds
+  // Initial fetch after auth completes
   useEffect(() => {
+    if (!isLoading && !hasInitiallyFetched) {
+      setHasInitiallyFetched(true);
+      fetchPolls(false);
+    }
+  }, [isLoading, hasInitiallyFetched]);
+
+  // Periodic refresh every 30 seconds (only after initial fetch)
+  useEffect(() => {
+    if (!hasInitiallyFetched) return;
+    
     const interval = setInterval(() => fetchPolls(true), 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [hasInitiallyFetched]);
 
   // Manual refresh function
   const handleRefresh = () => {
     fetchPolls(false);
   };
+
+  // Show loading state while auth is in progress
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-8 h-8 border-2 border-forest-300 border-t-forest-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-forest-600">Loading...</p>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="text-center py-12">
@@ -86,29 +111,37 @@ export function HomeClient({ initialPolls, initialError }) {
 
         {/* Polls list with increased spacing */}
         <div className="space-y-6">
-          {polls.map((poll) => (
-            <Link key={poll.id} href={`/poll/${poll.id}`}>
-              <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors mb-4">
-                <h3 className="text-forest-900 font-medium mb-2 line-clamp-2">
-                  {poll.question}
-                </h3>
-                <div className="flex items-center justify-between text-sm text-forest-600">
-                  <span>{poll.total_votes} votes</span>
-                  <span>{poll.time_ago}</span>
+          {polls.map((poll) => {
+            const href = poll.has_voted ? `/poll/${poll.id}/results` : `/poll/${poll.id}`;
+            return (
+              <Link key={poll.id} href={href}>
+                <div className="bg-white border border-mint-200 rounded-xl p-4 hover:border-mint-300 transition-colors mb-4">
+                  <h3 className="text-forest-900 font-medium mb-2 line-clamp-2">
+                    {poll.question}
+                  </h3>
+                  <div className="flex items-center justify-between text-sm text-forest-600">
+                    <span>{poll.total_votes} votes</span>
+                    <span>{poll.time_ago}</span>
+                  </div>
+                  {poll.has_voted && (
+                    <div className="mt-2 text-xs text-forest-500">
+                      ✅ You voted
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <img 
+                      src={poll.creator.pfp_url} 
+                      alt={poll.creator.display_name}
+                      className="w-6 h-6 rounded-full"
+                    />
+                    <span className="text-sm text-forest-600">
+                      {poll.creator.display_name}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <img 
-                    src={poll.creator.pfp_url} 
-                    alt={poll.creator.display_name}
-                    className="w-6 h-6 rounded-full"
-                  />
-                  <span className="text-sm text-forest-600">
-                    {poll.creator.display_name}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       </div>
     );

@@ -72,11 +72,12 @@ async function getImageUrl(pollId, existingImageUrl) {
 
 // Generate dynamic frame metadata
 export async function generateMetadata({ params }) {
-  const pollResponse = await getPollData(params.id);
+  const pollId = (await params).id;
+  const pollResponse = await getPollData(pollId);
   const poll = pollResponse?.poll;
 
   if (poll) {
-    const imageUrl = await getImageUrl(params.id, poll.image_url);
+    const imageUrl = await getImageUrl(pollId, poll.image_url);
 
     return {
       title: `Poll: ${poll.question}`,
@@ -90,7 +91,7 @@ export async function generateMetadata({ params }) {
             action: {
               type: "launch_frame",
               name: "Polling Center",
-              url: `${process.env.NEXT_PUBLIC_FRAME_URL || 'https://polling.center'}/poll/${params.id}`,
+              url: `${process.env.NEXT_PUBLIC_FRAME_URL || 'https://polling.center'}/poll/${pollId}`,
               splashImageUrl: "https://images.polling.center/polling_center_square.png",
               splashBackgroundColor: "#E9FFD8"
             }

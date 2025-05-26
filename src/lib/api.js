@@ -36,8 +36,11 @@ export async function authenticatedApiCall(endpoint, authHeaders, options = {}) 
 // API methods for polls
 export const pollsApi = {
   // Get all polls for home page
-  getPolls: async (params = {}) => {
+  getPolls: async (params = {}, authHeaders = null) => {
     const query = new URLSearchParams(params).toString();
+    if (authHeaders) {
+      return authenticatedApiCall(`/polls${query ? `?${query}` : ''}`, authHeaders);
+    }
     return apiCall(`/polls${query ? `?${query}` : ''}`);
   },
 

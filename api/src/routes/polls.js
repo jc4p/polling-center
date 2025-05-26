@@ -57,6 +57,19 @@ pollsRouter.get('/', async (c) => {
       return c.json({ error: 'Database not available' }, 503)
     }
 
+    // Check if user is authenticated for voting status
+    let userFid = null
+    try {
+      const createAuth = c.get('createAuth')
+      if (createAuth) {
+        await createAuth()(c, async () => {})
+      }
+      const user = getAuthenticatedUser(c)
+      userFid = user?.fid
+    } catch (error) {
+      // User not authenticated, continue without voting status
+    }
+
     // Build query based on filters
     let whereClause = ''
     let joinClause = ''
@@ -111,9 +124,23 @@ pollsRouter.get('/', async (c) => {
       creators = await neynar.getUsersByFids(creatorFids)
     }
 
-    // Enrich polls with creator info and format
+    // Get voting status for authenticated user
+    let userVotes = []
+    if (userFid && polls.length > 0) {
+      const pollIds = polls.map(p => p.id)
+      const placeholders = pollIds.map(() => '?').join(',')
+      const { results } = await db.prepare(`
+        SELECT poll_id, option_index FROM votes 
+        WHERE poll_id IN (${placeholders}) AND voter_fid = ?
+      `).bind(...pollIds, userFid).all()
+      userVotes = results
+    }
+
+    // Enrich polls with creator info and voting status
     const enrichedPolls = polls.map(poll => {
       const creator = creators.find(c => c.fid === poll.creator_fid)
+      const userVote = userVotes.find(v => v.poll_id === poll.id)
+      
       return {
         id: poll.id,
         question: poll.question,
@@ -124,6 +151,8 @@ pollsRouter.get('/', async (c) => {
         total_votes: poll.total_votes,
         image_url: poll.image_url,
         transaction_hash: poll.transaction_hash,
+        has_voted: !!userVote,
+        user_vote: userVote ? { option_index: userVote.option_index } : null,
         creator: creator ? {
           fid: creator.fid,
           username: creator.username,
