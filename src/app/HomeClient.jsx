@@ -39,13 +39,13 @@ export function HomeClient({ initialPolls, initialError }) {
     }
   };
 
-  // Initial fetch after auth completes
+  // Initial fetch after user is authenticated
   useEffect(() => {
-    if (!isLoading && !hasInitiallyFetched) {
+    if (isAuthenticated && !hasInitiallyFetched) {
       setHasInitiallyFetched(true);
       fetchPolls(false);
     }
-  }, [isLoading, hasInitiallyFetched]);
+  }, [isAuthenticated, hasInitiallyFetched]);
 
   // Periodic refresh every 30 seconds (only after initial fetch)
   useEffect(() => {
