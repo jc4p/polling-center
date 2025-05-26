@@ -1,14 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmojiReactions } from '@/components/ui/EmojiReactions';
 import { VoteTransaction } from '@/components/ui/VoteTransaction';
 import { ShareModal } from '@/components/ui/ShareModal';
 
-export function ResultsClient({ poll, recentVotes }) {
+export function ResultsClient({ poll: initialPoll, recentVotes: initialRecentVotes }) {
+  const params = useParams();
+  const [poll, setPoll] = useState(initialPoll);
+  const [recentVotes, setRecentVotes] = useState(initialRecentVotes);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchResults = async () => {
+    try {
+      setIsRefreshing(true);
+      const response = await fetch(`/api/polls/${params.id}/results`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch results');
+      }
+      const data = await response.json();
+      setPoll(data.poll);
+      setRecentVotes(data.recent_votes || []);
+    } catch (err) {
+      console.error('Error fetching results:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Periodic refresh every 15 seconds for results (only if poll is active)
+  useEffect(() => {
+    if (poll.status === 'expired') {
+      return; // Don't refresh if poll is over
+    }
+    
+    const interval = setInterval(fetchResults, 15000);
+    return () => clearInterval(interval);
+  }, [params.id, poll.status]);
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    fetchResults();
+  };
 
   const handleShare = () => {
     setShowShareModal(true);
@@ -48,6 +85,30 @@ export function ResultsClient({ poll, recentVotes }) {
         >
           Share Results
         </Button>
+      </div>
+
+      {/* Refresh indicator */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-mint-100">
+        <div className="flex items-center gap-2">
+          {isRefreshing && (
+            <div className="w-4 h-4 border-2 border-forest-300 border-t-forest-600 rounded-full animate-spin"></div>
+          )}
+          <span className="text-sm text-forest-600">
+            {poll.status === 'expired' 
+              ? 'Poll ended - Final results' 
+              : isRefreshing 
+                ? 'Refreshing results...' 
+                : 'Auto-refreshes every 15s'
+            }
+          </span>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing || poll.status === 'expired'}
+          className="text-sm text-forest-600 hover:text-forest-900 disabled:opacity-50"
+        >
+          {poll.status === 'expired' ? 'Final' : 'Refresh'}
+        </button>
       </div>
 
       <EmojiReactions />

@@ -70,7 +70,7 @@ export default async function Home() {
             </Link>
           </div>
 
-          <HomeClient polls={polls} error={error} />
+          <HomeClient initialPolls={polls} initialError={error} />
         </div>
       </div>
     </AppLayout>

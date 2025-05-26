@@ -1,0 +1,17 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjk3NzIzMywidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGE2N0JhMDI4MTIzMWVCOUUyZWE0Y0Y5Nzg5NGMwYjBiNUI4MDFDYzYifQ",
+    "payload": "eyJkb21haW4iOiJwb2xsaW5nLmNlbnRlciJ9",
+    "signature": "MHhlOWUzNjIyYTYxYTUwODFiZDU4ZGIwYTIwZTFlMjNiZjY2YTA0ZjZiMmU3M2MzYWQxYTY2ZGJkZDRkYzVkNjEwNDY2NTBlZTY5ZTkzOTlkN2VhNjQ0MmM4OGFlNDViNWJlMzQyYWVhZjAxMTIwYjQyYzdmNzcwODc5NjQ3ZWE3ZjFj"
+  },
+  "frame": {
+    "version": "1",
+    "name": "Polling Center",
+    "iconUrl": "https://images.polling.center/polling_center_square.png",
+    "homeUrl": "https://polling.center",
+    "imageUrl": "https://images.polling.center/polling_center_rectangle.png",
+    "buttonTitle": "Open Polling Center",
+    "splashImageUrl": "https://images.polling.center/polling_center_square.png",
+    "splashBackgroundColor": "#E9FFD8"
+  }
+}

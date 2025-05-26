@@ -10,10 +10,12 @@ import { pollsApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useWeb3 } from '@/lib/web3Context';
 
-export function PollVoteClient({ poll, votes }) {
+export function PollVoteClient({ poll: initialPoll, votes: initialVotes }) {
   const router = useRouter();
   const { getAuthHeaders, isAuthenticated } = useAuth();
   const { pollsContract, isConnected } = useWeb3();
+  const [poll, setPoll] = useState(initialPoll);
+  const [votes, setVotes] = useState(initialVotes);
   const [selectedOption, setSelectedOption] = useState(0);
   const [votingState, setVotingState] = useState('idle'); 
   // States: idle, onchain, confirming, complete
@@ -21,6 +23,38 @@ export function PollVoteClient({ poll, votes }) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [userVote, setUserVote] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fetch updated poll data and votes
+  const fetchPollData = async () => {
+    try {
+      setIsRefreshing(true);
+      const [pollResponse, votesResponse] = await Promise.all([
+        fetch(`/api/polls/${poll.id}`),
+        fetch(`/api/votes?poll_id=${poll.id}&limit=10`)
+      ]);
+      
+      if (pollResponse.ok) {
+        const pollData = await pollResponse.json();
+        setPoll(pollData.poll);
+      }
+      
+      if (votesResponse.ok) {
+        const votesData = await votesResponse.json();
+        setVotes(votesData.votes || []);
+      }
+    } catch (err) {
+      console.error('Error fetching poll data:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Periodic refresh every 5 seconds for voting page
+  useEffect(() => {
+    const interval = setInterval(fetchPollData, 5000);
+    return () => clearInterval(interval);
+  }, [poll.id]);
 
   // Check if user has already voted (use database, not onchain)
   useEffect(() => {
@@ -193,6 +227,25 @@ export function PollVoteClient({ poll, votes }) {
         >
           Share
         </Button>
+      </div>
+
+      {/* Refresh indicator */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-mint-100">
+        <div className="flex items-center gap-2">
+          {isRefreshing && (
+            <div className="w-4 h-4 border-2 border-forest-300 border-t-forest-600 rounded-full animate-spin"></div>
+          )}
+          <span className="text-sm text-forest-600">
+            {isRefreshing ? 'Refreshing...' : 'Auto-refreshes every 5s'}
+          </span>
+        </div>
+        <button
+          onClick={fetchPollData}
+          disabled={isRefreshing}
+          className="text-sm text-forest-600 hover:text-forest-900 disabled:opacity-50"
+        >
+          Refresh now
+        </button>
       </div>
 
 
