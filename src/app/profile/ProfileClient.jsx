@@ -184,7 +184,7 @@ export function ProfileClient() {
                       <span>Voted: <strong>{vote.option_text}</strong></span>
                       {vote.transaction_hash && (
                         <span className="text-xs bg-mint-100 px-2 py-1 rounded">
-                          {vote.short_tx_hash || 'On-chain'}
+                          {vote.short_tx_hash || 'Onchain'}
                         </span>
                       )}
                     </div>
