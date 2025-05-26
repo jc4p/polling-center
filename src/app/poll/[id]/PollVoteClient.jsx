@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { RadioOption } from '@/components/ui/RadioGroup';
 import { VoteTransaction } from '@/components/ui/VoteTransaction';
 import { ShareModal } from '@/components/ui/ShareModal';
-import { pollsApi } from '@/lib/api';
+import { pollsApi, votesApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useWeb3 } from '@/lib/web3Context';
 
@@ -29,19 +29,17 @@ export function PollVoteClient({ poll: initialPoll, votes: initialVotes }) {
   const fetchPollData = async () => {
     try {
       setIsRefreshing(true);
-      const [pollResponse, votesResponse] = await Promise.all([
-        fetch(`/api/polls/${poll.id}`),
-        fetch(`/api/votes?poll_id=${poll.id}&limit=10`)
+      const [pollData, votesData] = await Promise.all([
+        pollsApi.getPoll(poll.id),
+        votesApi.getVotes({ poll_id: poll.id, limit: 10 })
       ]);
       
-      if (pollResponse.ok) {
-        const pollData = await pollResponse.json();
+      if (pollData?.poll) {
         setPoll(pollData.poll);
       }
       
-      if (votesResponse.ok) {
-        const votesData = await votesResponse.json();
-        setVotes(votesData.votes || []);
+      if (votesData?.votes) {
+        setVotes(votesData.votes);
       }
     } catch (err) {
       console.error('Error fetching poll data:', err);
@@ -62,17 +60,12 @@ export function PollVoteClient({ poll: initialPoll, votes: initialVotes }) {
       if (!isAuthenticated) return;
       
       try {
-        // Use existing API to check if user voted (requires auth)
-        const response = await fetch(`/api/polls/${poll.id}/user-vote`, {
-          headers: getAuthHeaders()
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setHasVoted(data.hasVoted);
-          if (data.hasVoted && data.userVote) {
-            setUserVote(data.userVote);
-            setSelectedOption(data.userVote.option_index);
-          }
+        // Use API helper to check if user voted (requires auth)
+        const data = await pollsApi.getUserVote(poll.id, getAuthHeaders());
+        setHasVoted(data.hasVoted);
+        if (data.hasVoted && data.userVote) {
+          setUserVote(data.userVote);
+          setSelectedOption(data.userVote.option_index);
         }
       } catch (error) {
         console.error('Failed to check voting status:', error);

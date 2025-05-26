@@ -100,6 +100,13 @@ export const pollsApi = {
       method: 'GET',
     });
   },
+
+  // Check if user has voted on poll
+  getUserVote: async (pollId, authHeaders) => {
+    return authenticatedApiCall(`/polls/${pollId}/user-vote`, authHeaders, {
+      method: 'GET',
+    });
+  },
 };
 
 // API methods for votes

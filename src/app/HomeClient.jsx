@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
+import { pollsApi } from '@/lib/api';
 
 export function HomeClient({ initialPolls, initialError }) {
   const [polls, setPolls] = useState(initialPolls || []);
@@ -14,11 +15,7 @@ export function HomeClient({ initialPolls, initialError }) {
     try {
       setIsRefreshing(true);
       setRefreshError(null);
-      const response = await fetch('/api/polls?limit=10');
-      if (!response.ok) {
-        throw new Error('Failed to fetch polls');
-      }
-      const data = await response.json();
+      const data = await pollsApi.getPolls({ limit: 10 });
       setPolls(data.polls || []);
       setError(null); // Clear any previous errors on success
     } catch (err) {

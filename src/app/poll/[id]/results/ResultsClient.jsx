@@ -7,6 +7,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmojiReactions } from '@/components/ui/EmojiReactions';
 import { VoteTransaction } from '@/components/ui/VoteTransaction';
 import { ShareModal } from '@/components/ui/ShareModal';
+import { pollsApi } from '@/lib/api';
 
 export function ResultsClient({ poll: initialPoll, recentVotes: initialRecentVotes }) {
   const params = useParams();
@@ -18,11 +19,7 @@ export function ResultsClient({ poll: initialPoll, recentVotes: initialRecentVot
   const fetchResults = async () => {
     try {
       setIsRefreshing(true);
-      const response = await fetch(`/api/polls/${params.id}/results`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch results');
-      }
-      const data = await response.json();
+      const data = await pollsApi.getResults(params.id);
       setPoll(data.poll);
       setRecentVotes(data.recent_votes || []);
     } catch (err) {
