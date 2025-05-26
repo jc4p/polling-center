@@ -25,7 +25,7 @@ export function ResultsClient({ poll, recentVotes }) {
 
   return (
     <>
-      <div className="flex items-center gap-4 px-4 pt-5 pb-2">
+      <div className="flex items-center gap-4 px-4 pb-2">
         <div 
           className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-12 w-fit"
           style={{ backgroundImage: `url("${poll.creator.pfp_url}")` }}
@@ -62,14 +62,7 @@ export function ResultsClient({ poll, recentVotes }) {
       ))}
 
       <h3 className="text-forest-900 text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">
-        Total Votes
-      </h3>
-      <p className="text-forest-900 text-base font-normal leading-normal pb-3 pt-1 px-4">
-        {poll.total_votes} votes
-      </p>
-
-      <h3 className="text-forest-900 text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">
-        Onchain Transactions
+        Votes ({poll.total_votes} total)
       </h3>
 
       {recentVotes.length > 0 ? (
@@ -79,6 +72,7 @@ export function ResultsClient({ poll, recentVotes }) {
             user={vote.voter.display_name}
             transaction={vote.short_tx_hash || vote.transaction_hash || `@${vote.voter.username}`}
             avatar={vote.voter.pfp_url}
+            timestamp={vote.voted_at}
           />
         ))
       ) : (

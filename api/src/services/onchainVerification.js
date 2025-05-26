@@ -35,9 +35,6 @@ export async function verifyPollCreationTransaction(
       return { verified: false, error: 'Invalid transaction hash format' }
     }
 
-    console.log(`Verifying poll creation transaction: ${transactionHash}`)
-    console.log(`Expected: pollId=${expectedPollId}, creatorFid=${expectedCreatorFid}, duration=${expectedDurationDays}, options=${expectedOptionCount}`)
-
     // Get transaction receipt with retry logic
     const verificationResult = await verifyTransactionWithRetry(blockchain, transactionHash)
     
@@ -59,15 +56,10 @@ export async function verifyPollCreationTransaction(
     // Parse logs to find PollCreated event
     let pollCreatedEvent = null
     
-    console.log(`📋 Transaction has ${receipt.logs.length} logs`)
-    
     for (const log of receipt.logs) {
       try {
-        console.log(`  Log from address: ${log.address}`)
-        
         // Only check logs from our contract address
         if (contractAddress && log.address.toLowerCase() !== contractAddress.toLowerCase()) {
-          console.log(`    Skipping log - wrong contract address (expected ${contractAddress})`)
           continue
         }
         
@@ -77,14 +69,11 @@ export async function verifyPollCreationTransaction(
           topics: log.topics
         })
         
-        console.log(`    Decoded event: ${decodedLog.eventName}`)
         if (decodedLog.eventName === 'PollCreated') {
-          console.log(`    Found PollCreated event with pollId: ${decodedLog.args.pollId}`)
           pollCreatedEvent = decodedLog
           break
         }
       } catch (error) {
-        console.log(`    Failed to decode log: ${error.message}`)
         // Skip logs that don't match our ABI
         continue
       }
@@ -97,15 +86,6 @@ export async function verifyPollCreationTransaction(
     // Verify event parameters match expected values
     const { pollId, creator, creatorFid, expiresAt } = pollCreatedEvent.args
     
-    console.log(`🔍 Blockchain event data:`)
-    console.log(`  pollId: ${pollId}`)
-    console.log(`  creator: ${creator}`)
-    console.log(`  creatorFid: ${creatorFid}`)
-    console.log(`  expiresAt: ${expiresAt}`)
-    console.log(`🎯 Expected data:`)
-    console.log(`  expectedPollId: ${expectedPollId}`)
-    console.log(`  expectedCreatorFid: ${expectedCreatorFid}`)
-    
     // Calculate expected expiration based on duration
     const transaction = await blockchain.getTransaction({ hash: transactionHash })
     const block = await blockchain.getBlock({ blockNumber: receipt.blockNumber })
@@ -114,11 +94,6 @@ export async function verifyPollCreationTransaction(
     // For indexed string parameters, Solidity stores the keccak256 hash
     // So we need to compare the hash of our expected poll ID with the event pollId
     const expectedPollIdHash = keccak256(stringToBytes(expectedPollId))
-    
-    console.log(`🔍 Poll ID comparison:`)
-    console.log(`  Expected poll ID: ${expectedPollId}`)
-    console.log(`  Expected poll ID hash: ${expectedPollIdHash}`)
-    console.log(`  Blockchain poll ID (hash): ${pollId}`)
 
     if (pollId !== expectedPollIdHash) {
       return { 
@@ -190,8 +165,7 @@ export async function verifyVoteTransaction(
       return { verified: false, error: 'Invalid transaction hash format' }
     }
 
-    console.log(`Verifying vote transaction: ${transactionHash}`)
-    console.log(`Expected: pollId=${expectedPollId}, voterFid=${expectedVoterFid}, optionIndex=${expectedOptionIndex}`)
+
 
     // Get transaction receipt with retry logic
     const verificationResult = await verifyTransactionWithRetry(blockchain, transactionHash)

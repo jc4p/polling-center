@@ -6,6 +6,9 @@ import { Web3Provider } from "@/lib/web3Context";
 export const metadata = {
   title: "Polling Center",
   description: "Onchain polling platform for Farcaster",
+  icons: {
+    icon: '/favicon.png'
+  }
 };
 
 export default function RootLayout({ children }) {

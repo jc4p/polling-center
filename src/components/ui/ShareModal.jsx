@@ -5,7 +5,6 @@ import { Button } from './Button';
 import * as frame from '@farcaster/frame-sdk';
 
 export function ShareModal({ isOpen, onClose, poll, shareUrl, shareType = 'poll' }) {
-  const [copied, setCopied] = useState(false);
   const [isInFrame, setIsInFrame] = useState(false);
 
   useEffect(() => {
@@ -22,36 +21,50 @@ export function ShareModal({ isOpen, onClose, poll, shareUrl, shareType = 'poll'
     checkFrameContext();
   }, []);
 
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
+
 
   const getShareText = () => {
     if (shareType === 'vote' && poll.userVote) {
       const selectedOption = poll.options[poll.userVote.option_index];
-      return `I just voted for "${selectedOption.text}" on "${poll.question}"`;
+      return `I just voted for "${selectedOption.text}" on "${poll.question}" 🗳️`;
     }
     if (shareType === 'results' && poll.status === 'expired') {
       const winningOption = poll.options.reduce((prev, current) => 
         prev.percentage > current.percentage ? prev : current
       );
-      return `"${winningOption.text}" won with ${winningOption.percentage}% in "${poll.question}"`;
+      return `"${winningOption.text}" won with ${winningOption.percentage}% in "${poll.question}" 📊`;
     }
     // For general polls, active polls from results, and any other case
-    return `Check out this poll: "${poll.question}"`;
+    return `What do you think? "${poll.question}" 🤔`;
+  };
+
+  const getModalContent = () => {
+    if (shareType === 'vote' && poll.userVote) {
+      return {
+        title: "Vote Cast! 🎉",
+        description: "Your vote has been recorded onchain. Share your choice with friends!",
+        shareButtonText: "Share My Vote"
+      };
+    }
+    if (shareType === 'results') {
+      return {
+        title: "Share Results 📊",
+        description: "Show your friends how this poll turned out!",
+        shareButtonText: "Share Results"
+      };
+    }
+    return {
+      title: "Share Poll 🗳️",
+      description: "Get your friends to weigh in on this question!",
+      shareButtonText: "Share Poll"
+    };
   };
 
   const handleShareToFarcaster = async () => {
     const text = getShareText();
     const targetText = encodeURIComponent(text);
     const targetURL = encodeURIComponent(shareUrl);
-    const finalUrl = `https://warpcast.com/~/compose?text=${targetText}&embeds[]=${targetURL}`;
+    const finalUrl = `https://farcaster.xyz/~/compose?text=${targetText}&embeds[]=${targetURL}`;
 
     if (isInFrame) {
       try {
@@ -68,14 +81,22 @@ export function ShareModal({ isOpen, onClose, poll, shareUrl, shareType = 'poll'
 
   if (!isOpen) return null;
 
+  const modalContent = getModalContent();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-mint-50 rounded-xl p-6 max-w-sm mx-4 w-full">
-        <h3 className="text-forest-900 text-lg font-bold mb-4">Share Poll</h3>
+        <h3 className="text-forest-900 text-lg font-bold mb-2">{modalContent.title}</h3>
         
         <p className="text-forest-600 text-sm mb-4">
-          "{poll.question}"
+          {modalContent.description}
         </p>
+
+        <div className="bg-white rounded-lg p-3 mb-4 border border-mint-200">
+          <p className="text-forest-900 text-sm font-medium line-clamp-2">
+            "{poll.question}"
+          </p>
+        </div>
 
         <div className="space-y-3">
           <Button 
@@ -84,27 +105,16 @@ export function ShareModal({ isOpen, onClose, poll, shareUrl, shareType = 'poll'
             className="w-full"
             onClick={handleShareToFarcaster}
           >
-            Share to Farcaster
+            {modalContent.shareButtonText}
           </Button>
           
           <Button 
             variant="secondary" 
             size="medium" 
             className="w-full"
-            onClick={handleCopyLink}
-          >
-            {copied ? 'Copied!' : 'Copy Link'}
-          </Button>
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-mint-200">
-          <Button 
-            variant="secondary" 
-            size="small"
-            className="w-full"
             onClick={onClose}
           >
-            Close
+            View Results
           </Button>
         </div>
       </div>

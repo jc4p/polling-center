@@ -200,6 +200,7 @@ export function PollVoteClient({ poll, votes }) {
             user={vote.voter.display_name}
             transaction={vote.short_tx_hash || `@${vote.voter.username}`}
             avatar={vote.voter.pfp_url}
+            timestamp={vote.voted_at}
           />
         ))
       ) : (

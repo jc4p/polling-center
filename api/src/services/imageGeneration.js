@@ -9,8 +9,8 @@ export class ImageGenerationService {
   }
 
   // Generate live poll image with current results (cache-busted for live updates)
-  async generateLivePollImage(poll, creator) {
-    const html = this.generateLivePollImageHTML(poll, creator)
+  async generateLivePollImage(poll, creator, voters = []) {
+    const html = this.generateLivePollImageHTML(poll, creator, voters)
     
     try {
       const playwright = await launch(this.browser, { keep_alive: 120000 }) // 2 minutes
@@ -18,6 +18,12 @@ export class ImageGenerationService {
       
       // Set viewport to 3:2 aspect ratio (1200x800 for high quality)
       await page.setViewportSize({ width: 1200, height: 800 })
+      
+      console.log('🖼️ Generating image for poll:', poll.id)
+      console.log('👤 Creator data:', creator)
+      
+      console.log('🖼️ Generating image for poll:', poll.id)
+      console.log('👤 Creator data:', creator)
       
       // Set content and wait for fonts to load
       await page.setContent(html, { waitUntil: 'networkidle' })
@@ -56,7 +62,7 @@ export class ImageGenerationService {
 
 
   // Generate HTML for live poll image (shows current results with progress bars)
-  generateLivePollImageHTML(poll, creator) {
+  generateLivePollImageHTML(poll, creator, voters = []) {
     const options = poll.options.map(option => {
       const percentage = poll.total_votes > 0 ? Math.round((option.vote_count / poll.total_votes) * 100) : 0
       return `
@@ -102,13 +108,13 @@ export class ImageGenerationService {
         .header {
           display: flex;
           align-items: center;
-          gap: 12px;
-          margin-bottom: 32px;
+          gap: 20px;
+          margin-bottom: 40px;
         }
         
         .avatar {
-          width: 48px;
-          height: 48px;
+          width: 80px;
+          height: 80px;
           border-radius: 50%;
           background: #67974e;
           display: flex;
@@ -116,7 +122,23 @@ export class ImageGenerationService {
           justify-content: center;
           color: white;
           font-weight: 700;
-          font-size: 18px;
+          font-size: 32px;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+        }
+        
+        .avatar-fallback {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: #67974e;
+          color: white;
+          font-weight: 700;
+          font-size: 32px;
         }
         
         .creator-info {
@@ -124,37 +146,39 @@ export class ImageGenerationService {
         }
         
         .creator-name {
-          font-weight: 500;
+          font-weight: 600;
           color: #121b0e;
-          font-size: 16px;
+          font-size: 28px;
+          line-height: 1.2;
         }
         
         .creator-username {
           color: #67974e;
-          font-size: 14px;
+          font-size: 22px;
+          margin-top: 4px;
         }
         
         .poll-question {
-          font-size: 24px;
-          font-weight: 500;
+          font-size: 36px;
+          font-weight: 600;
           color: #121b0e;
-          line-height: 1.3;
-          margin-bottom: 32px;
-          max-height: 156px;
+          line-height: 1.2;
+          margin-bottom: 40px;
+          max-height: 200px;
           overflow: hidden;
         }
         
         .results {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 30px;
           flex: 1;
         }
         
         .result-option {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 12px;
         }
         
         .option-header {
@@ -165,29 +189,29 @@ export class ImageGenerationService {
         
         .option-percentage {
           color: #4ab714;
-          font-size: 20px;
+          font-size: 32px;
           font-weight: 700;
         }
         
         .progress-bar {
           width: 100%;
-          height: 12px;
+          height: 20px;
           background: #ebf3e7;
-          border-radius: 6px;
+          border-radius: 10px;
           overflow: hidden;
         }
         
         .progress-fill {
           height: 100%;
           background: #4ab714;
-          border-radius: 6px;
+          border-radius: 10px;
           transition: width 0.3s ease;
         }
         
         .option-text {
           color: #121b0e;
-          font-size: 18px;
-          font-weight: 400;
+          font-size: 26px;
+          font-weight: 500;
           flex: 1;
         }
         
@@ -196,41 +220,86 @@ export class ImageGenerationService {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-top: 24px;
-          border-top: 1px solid #d7e7d0;
+          padding-top: 30px;
+          border-top: 2px solid #d7e7d0;
         }
         
         .vote-count {
           color: #67974e;
-          font-size: 14px;
+          font-size: 18px;
           font-weight: 500;
         }
         
         .total-votes {
           color: #67974e;
-          font-size: 14px;
-          font-weight: 500;
+          font-size: 20px;
+          font-weight: 600;
         }
         
         .time-ago {
           color: #67974e;
-          font-size: 14px;
+          font-size: 18px;
         }
         
         .watermark {
           position: absolute;
-          bottom: 20px;
-          right: 20px;
+          bottom: 30px;
+          right: 30px;
           color: #67974e;
-          font-size: 12px;
+          font-size: 18px;
+          font-weight: 600;
+        }
+        
+        .voters-section {
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 1px solid #d7e7d0;
+        }
+        
+        .voters-label {
+          color: #67974e;
+          font-size: 16px;
           font-weight: 500;
+          margin-bottom: 12px;
+        }
+        
+        .voters-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        }
+        
+        .voter-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: #67974e;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .voter-avatar-fallback {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: #67974e;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
         }
       </style>
     </head>
     <body>
       <div class="header">
-        <div class="avatar">
-          ${creator?.display_name?.[0]?.toUpperCase() || creator?.username?.[0]?.toUpperCase() || '?'}
+        <div class="avatar" ${creator?.pfp_url ? `style="background-image: url('${creator.pfp_url}')"` : ''}>
+          ${!creator?.pfp_url ? `<div class="avatar-fallback">${creator?.display_name?.[0]?.toUpperCase() || creator?.username?.[0]?.toUpperCase() || '?'}</div>` : ''}
         </div>
         <div class="creator-info">
           <div class="creator-name">${this.escapeHtml(creator?.display_name || creator?.username || 'Anonymous')}</div>
@@ -250,6 +319,19 @@ export class ImageGenerationService {
         <div class="total-votes">${poll.total_votes} total votes</div>
         <div class="time-ago">${poll.time_ago}</div>
       </div>
+      
+      ${voters.length > 0 ? `
+        <div class="voters-section">
+          <div class="voters-label">Recent voters</div>
+          <div class="voters-grid">
+            ${voters.slice(0, 10).map(voter => `
+              <div class="voter-avatar" ${voter.pfp_url ? `style="background-image: url('${this.escapeHtml(voter.pfp_url)}')"` : ''}>
+                ${!voter.pfp_url ? `<div class="voter-avatar-fallback">${this.escapeHtml(voter.display_name?.[0]?.toUpperCase() || voter.username?.[0]?.toUpperCase() || '?')}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
       
       <div class="watermark">polling.center</div>
     </body>
