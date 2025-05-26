@@ -1,6 +1,7 @@
 import "./globals.css";
 import { FrameInit } from "@/components/FrameInit";
 import { AuthProvider } from "@/lib/auth";
+import { Web3Provider } from "@/lib/web3Context";
 
 export const metadata = {
   title: "Polling Center",
@@ -12,10 +13,12 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="antialiased">
         <AuthProvider>
-          <div>
-            {children}
-            <FrameInit />
-          </div>
+          <Web3Provider>
+            <div>
+              {children}
+              <FrameInit />
+            </div>
+          </Web3Provider>
         </AuthProvider>
       </body>
     </html>

@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { getAuthenticatedUser, getUserFid } from '../middleware/auth.js'
 import { isValidTransactionHash } from '../utils/blockchain.js'
 import { createImageQueueService } from '../services/imageQueue.js'
+import { verifyPollCreationTransaction, verifyVoteTransaction } from '../services/onchainVerification.js'
+import { createBlockchainClient } from '../config/blockchain.js'
 import { nanoid } from 'nanoid'
 
 const pollsRouter = new Hono()
@@ -17,10 +19,17 @@ const createPollSchema = z.object({
     .transform(Number)
 })
 
+const verifyPollSchema = z.object({
+  transactionHash: z.string().refine(
+    (hash) => isValidTransactionHash(hash), 
+    'Invalid transaction hash format'
+  )
+})
+
 const votePollSchema = z.object({
   optionIndex: z.number().min(0, 'Invalid option'),
-  transactionHash: z.string().optional().refine(
-    (hash) => !hash || isValidTransactionHash(hash), 
+  transactionHash: z.string().refine(
+    (hash) => isValidTransactionHash(hash), 
     'Invalid transaction hash format'
   )
 })
@@ -55,25 +64,28 @@ pollsRouter.get('/', async (c) => {
     let fromClause = 'FROM polls p'
     let params = []
     
+    // Only show verified polls (have transaction_hash)
+    whereClause = 'WHERE p.transaction_hash IS NOT NULL'
+    
     // Add JOIN if filtering by voter_fid
     if (query.voter_fid) {
       joinClause = 'JOIN votes v ON p.id = v.poll_id'
-      whereClause = 'WHERE v.voter_fid = ?'
+      whereClause += ' AND v.voter_fid = ?'
       params.push(query.voter_fid)
     }
     
     if (query.status !== 'all') {
       if (query.status === 'active') {
-        whereClause += whereClause ? ' AND p.status = ? AND p.expires_at > strftime("%s", "now")' : 'WHERE p.status = ? AND p.expires_at > strftime("%s", "now")'
+        whereClause += ' AND p.status = ? AND p.expires_at > strftime("%s", "now")'
         params.push('active')
       } else {
-        whereClause += whereClause ? ' AND (p.status = ? OR p.expires_at <= strftime("%s", "now"))' : 'WHERE (p.status = ? OR p.expires_at <= strftime("%s", "now"))'
+        whereClause += ' AND (p.status = ? OR p.expires_at <= strftime("%s", "now"))'
         params.push('expired')
       }
     }
     
     if (query.creator_fid) {
-      whereClause += whereClause ? ' AND p.creator_fid = ?' : 'WHERE p.creator_fid = ?'
+      whereClause += ' AND p.creator_fid = ?'
       params.push(query.creator_fid)
     }
 
@@ -108,6 +120,7 @@ pollsRouter.get('/', async (c) => {
         status: poll.expires_at <= Math.floor(Date.now() / 1000) ? 'expired' : poll.status,
         total_votes: poll.total_votes,
         image_url: poll.image_url,
+        transaction_hash: poll.transaction_hash,
         creator: creator ? {
           fid: creator.fid,
           username: creator.username,
@@ -140,7 +153,7 @@ pollsRouter.get('/', async (c) => {
   }
 })
 
-// POST /api/polls - Create new poll (requires auth)
+// POST /api/polls - Create new poll (requires auth, no onchain verification yet)
 pollsRouter.post('/', async (c) => {
   try {
     // Apply auth middleware
@@ -162,7 +175,7 @@ pollsRouter.post('/', async (c) => {
     const now = Math.floor(Date.now() / 1000)
     const expiresAt = now + (validData.duration * 24 * 60 * 60)
 
-    // Create poll
+    // Create poll without transaction hash (unverified)
     await db.prepare(`
       INSERT INTO polls (id, creator_fid, question, duration_days, created_at, expires_at, status, total_votes)
       VALUES (?, ?, ?, ?, ?, ?, 'active', 0)
@@ -179,7 +192,86 @@ pollsRouter.post('/', async (c) => {
     // Fetch the created poll with options
     const poll = await getPollWithDetails(db, pollId, c.get('neynar'))
 
-    // Queue live image generation task
+    console.log(`📝 Poll created (unverified): ${pollId}`)
+    return c.json({ poll }, 201)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Validation failed', details: error.errors }, 400)
+    }
+    console.error('Error creating poll:', error)
+    return c.json({ error: 'Failed to create poll' }, 500)
+  }
+})
+
+// POST /api/polls/:id/verify - Verify poll with onchain transaction
+pollsRouter.post('/:id/verify', async (c) => {
+  try {
+    // Apply auth middleware
+    const createAuth = c.get('createAuth')
+    if (createAuth) {
+      await createAuth()(c, async () => {})
+    }
+    
+    const user = getAuthenticatedUser(c)
+    const pollId = c.req.param('id')
+    const body = await c.req.json()
+    const validData = verifyPollSchema.parse(body)
+    const db = c.env.DB
+    
+    if (!db) {
+      return c.json({ error: 'Database not available' }, 503)
+    }
+
+    // Check if poll exists and user is the creator
+    const { results: [poll] } = await db.prepare(`
+      SELECT id, creator_fid, question, duration_days, transaction_hash FROM polls WHERE id = ?
+    `).bind(pollId).all()
+
+    if (!poll) {
+      return c.json({ error: 'Poll not found' }, 404)
+    }
+
+    if (poll.creator_fid !== user.fid) {
+      return c.json({ error: 'Only poll creator can verify' }, 403)
+    }
+
+    if (poll.transaction_hash) {
+      return c.json({ error: 'Poll already verified' }, 400)
+    }
+
+    // Get poll options count for verification
+    const { results: options } = await db.prepare(`
+      SELECT COUNT(*) as count FROM poll_options WHERE poll_id = ?
+    `).bind(pollId).all()
+
+    // Create blockchain client for verification
+    const blockchain = createBlockchainClient(c.env)
+
+    // Verify onchain poll creation transaction
+    console.log(`Verifying poll creation transaction for poll: ${pollId}`)
+    const verificationResult = await verifyPollCreationTransaction(
+      blockchain,
+      validData.transactionHash,
+      pollId,
+      poll.creator_fid,
+      poll.duration_days,
+      options[0].count
+    )
+
+    if (!verificationResult.verified) {
+      console.error(`Poll creation verification failed: ${verificationResult.error}`)
+      return c.json({ 
+        error: 'Onchain verification failed', 
+        details: verificationResult.error 
+      }, 400)
+    }
+
+    // Update poll with transaction hash
+    await db.prepare(`
+      UPDATE polls SET transaction_hash = ? WHERE id = ?
+    `).bind(validData.transactionHash, pollId).run()
+
+    // Queue live image generation task now that poll is verified
     const imageQueue = c.env.IMAGE_QUEUE
     if (imageQueue) {
       try {
@@ -190,13 +282,20 @@ pollsRouter.post('/', async (c) => {
       }
     }
 
-    return c.json({ poll }, 201)
+    // Fetch the updated poll
+    const updatedPoll = await getPollWithDetails(db, pollId, c.get('neynar'))
+
+    console.log(`✅ Poll verified successfully: ${pollId}`)
+    return c.json({ 
+      poll: updatedPoll,
+      verification: verificationResult.pollCreationData
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return c.json({ error: 'Validation failed', details: error.errors }, 400)
     }
-    console.error('Error creating poll:', error)
-    return c.json({ error: 'Failed to create poll' }, 500)
+    console.error('Error verifying poll:', error)
+    return c.json({ error: 'Failed to verify poll' }, 500)
   }
 })
 
@@ -223,7 +322,7 @@ pollsRouter.get('/:id', async (c) => {
   }
 })
 
-// POST /api/polls/:id/vote - Submit vote (requires auth)
+// POST /api/polls/:id/vote - Submit vote (requires auth and onchain verification)
 pollsRouter.post('/:id/vote', async (c) => {
   try {
     // Apply auth middleware
@@ -242,9 +341,12 @@ pollsRouter.post('/:id/vote', async (c) => {
       return c.json({ error: 'Database not available' }, 503)
     }
 
+    // Use authenticated user's FID for voting
+    const voterFid = user.fid
+
     // Check if poll exists and is active
     const { results: [poll] } = await db.prepare(`
-      SELECT id, expires_at, status FROM polls WHERE id = ?
+      SELECT id, expires_at, status, transaction_hash FROM polls WHERE id = ?
     `).bind(pollId).all()
 
     if (!poll) {
@@ -255,10 +357,15 @@ pollsRouter.post('/:id/vote', async (c) => {
       return c.json({ error: 'Poll is no longer active' }, 400)
     }
 
+    // Only allow voting on onchain-verified polls
+    if (!poll.transaction_hash) {
+      return c.json({ error: 'Can only vote on onchain-verified polls' }, 400)
+    }
+
     // Check if user already voted
     const { results: [existingVote] } = await db.prepare(`
       SELECT id FROM votes WHERE poll_id = ? AND voter_fid = ?
-    `).bind(pollId, user.fid).all()
+    `).bind(pollId, voterFid).all()
 
     if (existingVote) {
       return c.json({ error: 'You have already voted on this poll' }, 400)
@@ -273,23 +380,57 @@ pollsRouter.post('/:id/vote', async (c) => {
       return c.json({ error: 'Invalid option selected' }, 400)
     }
 
-    // Create vote record with pending status if transaction hash provided
+    // Create blockchain client for verification
+    const blockchain = createBlockchainClient(c.env)
+
+    // Verify onchain vote transaction
+    console.log(`Verifying vote transaction for poll: ${pollId}`)
+    const verificationResult = await verifyVoteTransaction(
+      blockchain,
+      validData.transactionHash,
+      pollId,
+      voterFid,
+      validData.optionIndex
+    )
+
+    if (!verificationResult.verified) {
+      console.error(`Vote verification failed: ${verificationResult.error}`)
+      return c.json({ 
+        error: 'Onchain verification failed', 
+        details: verificationResult.error 
+      }, 400)
+    }
+
+    // Create vote record (verified)
     const voteId = nanoid()
     const now = Math.floor(Date.now() / 1000)
-    const hasTransaction = !!validData.transactionHash
 
     await db.prepare(`
-      INSERT INTO votes (id, poll_id, voter_fid, option_index, transaction_hash, voted_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(voteId, pollId, user.fid, validData.optionIndex, validData.transactionHash || null, now).run()
+      INSERT INTO votes (id, poll_id, voter_fid, option_index, transaction_hash, block_number, voted_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      voteId, 
+      pollId, 
+      voterFid, 
+      validData.optionIndex, 
+      validData.transactionHash,
+      verificationResult.voteData.blockNumber,
+      now
+    ).run()
 
-    // If transaction hash provided, create pending transaction record
-    if (hasTransaction) {
-      await db.prepare(`
-        INSERT INTO vote_transactions (transaction_hash, vote_id, status, created_at)
-        VALUES (?, ?, 'pending', ?)
-      `).bind(validData.transactionHash, voteId, now).run()
-    }
+    // Create confirmed transaction record
+    await db.prepare(`
+      INSERT INTO vote_transactions (transaction_hash, vote_id, block_number, block_hash, gas_used, status, verified_at, created_at)
+      VALUES (?, ?, ?, ?, ?, 'confirmed', ?, ?)
+    `).bind(
+      validData.transactionHash, 
+      voteId, 
+      verificationResult.voteData.blockNumber,
+      verificationResult.voteData.blockHash,
+      verificationResult.voteData.gasUsed,
+      now,
+      now
+    ).run()
 
     // Vote counts are updated automatically by triggers
 
@@ -304,12 +445,14 @@ pollsRouter.post('/:id/vote', async (c) => {
       }
     }
 
+    console.log(`✅ Vote verified and recorded: ${pollId} - option ${validData.optionIndex} by FID ${voterFid}`)
     return c.json({ 
       success: true,
-      message: hasTransaction ? 'Vote recorded, transaction pending verification' : 'Vote recorded successfully',
+      message: 'Vote verified and recorded successfully',
       vote_id: voteId,
       transaction_hash: validData.transactionHash,
-      status: hasTransaction ? 'pending_verification' : 'confirmed'
+      status: 'confirmed',
+      block_number: verificationResult.voteData.blockNumber
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -434,7 +577,7 @@ pollsRouter.post('/:id/react', async (c) => {
 export async function getPollWithDetails(db, pollId, neynar) {
   // Get poll basic info
   const { results: [poll] } = await db.prepare(`
-    SELECT id, creator_fid, question, duration_days, created_at, expires_at, status, total_votes, image_url
+    SELECT id, creator_fid, question, duration_days, created_at, expires_at, status, total_votes, image_url, transaction_hash
     FROM polls WHERE id = ?
   `).bind(pollId).all()
 
@@ -480,6 +623,7 @@ export async function getPollWithDetails(db, pollId, neynar) {
     status: poll.expires_at <= Math.floor(Date.now() / 1000) ? 'expired' : poll.status,
     total_votes: poll.total_votes,
     image_url: poll.image_url,
+    transaction_hash: poll.transaction_hash,
     creator,
     options: optionsWithPercentages,
     time_ago: formatTimeAgo(poll.created_at)

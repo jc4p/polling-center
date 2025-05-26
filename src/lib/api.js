@@ -46,7 +46,7 @@ export const pollsApi = {
     return apiCall(`/polls/${id}`);
   },
 
-  // Create new poll
+  // Create new poll (enhanced for onchain)
   createPoll: async (data, authHeaders) => {
     return authenticatedApiCall('/polls', authHeaders, {
       method: 'POST',
@@ -54,11 +54,30 @@ export const pollsApi = {
     });
   },
 
-  // Submit vote
+  // Verify poll creation transaction
+  verifyPollCreation: async (pollId, transactionHash, authHeaders) => {
+    return authenticatedApiCall(`/polls/${pollId}/verify`, authHeaders, {
+      method: 'POST',
+      body: JSON.stringify({ transactionHash }),
+    });
+  },
+
+  // Submit vote (enhanced for onchain)
   vote: async (pollId, data, authHeaders) => {
     return authenticatedApiCall(`/polls/${pollId}/vote`, authHeaders, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  // Submit vote with transaction hash
+  voteWithTransaction: async (pollId, voteData, transactionHash, authHeaders) => {
+    return authenticatedApiCall(`/polls/${pollId}/vote`, authHeaders, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...voteData,
+        transactionHash
+      }),
     });
   },
 
@@ -72,6 +91,13 @@ export const pollsApi = {
     return authenticatedApiCall(`/polls/${pollId}/react`, authHeaders, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  // Get user profile and FID
+  getUserProfile: async (authHeaders) => {
+    return authenticatedApiCall('/profile', authHeaders, {
+      method: 'GET',
     });
   },
 };

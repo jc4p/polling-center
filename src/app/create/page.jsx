@@ -9,14 +9,17 @@ import { Button } from '@/components/ui/Button';
 import { DurationSelector } from '@/components/ui/DurationSelector';
 import { pollsApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useWeb3 } from '@/lib/web3Context';
 
 export default function CreatePoll() {
   const router = useRouter();
   const { getAuthHeaders, isAuthenticated, isLoading } = useAuth();
+  const { pollsContract, isConnected } = useWeb3();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [duration, setDuration] = useState('1 day');
-  const [isCreating, setIsCreating] = useState(false);
+  const [creationState, setCreationState] = useState('idle'); 
+  // States: idle, creating, onchain, verifying, complete
   const [error, setError] = useState('');
 
   const addOption = () => {
@@ -53,14 +56,17 @@ export default function CreatePoll() {
       return;
     }
 
-    setIsCreating(true);
+    if (!isAuthenticated) {
+      setError('Authentication required to create polls');
+      return;
+    }
+
+    if (!isConnected || !pollsContract) {
+      setError('Web3 connection required for onchain polls');
+      return;
+    }
 
     try {
-      if (!isAuthenticated) {
-        setError('Authentication required to create polls');
-        return;
-      }
-
       // Extract duration number from string like "1 day" -> "1"
       const durationDays = duration.split(' ')[0];
       
@@ -70,16 +76,44 @@ export default function CreatePoll() {
         duration: durationDays
       };
 
+      // Step 1: Create poll in database first
+      setCreationState('creating');
       const response = await pollsApi.createPoll(pollData, getAuthHeaders());
+      const { poll } = response;
+
+      // Get user profile for FID
+      const profileResponse = await pollsApi.getUserProfile(getAuthHeaders());
+      const userFid = profileResponse.user.fid;
+
+      // Step 2: Submit to smart contract
+      setCreationState('onchain');
+      const txHash = await pollsContract.createPoll(
+        poll.id,
+        userFid,
+        parseInt(durationDays),
+        validOptions.length
+      );
+
+      // Step 3: Verify the transaction with backend
+      setCreationState('verifying');
+      await pollsApi.verifyPollCreation(poll.id, txHash, getAuthHeaders());
+
+      setCreationState('complete');
       
       // Redirect to the created poll
-      router.push(`/poll/${response.poll.id}`);
+      router.push(`/poll/${poll.id}`);
       
     } catch (err) {
-      console.error('Error creating poll:', err);
-      setError('Failed to create poll. Please try again.');
-    } finally {
-      setIsCreating(false);
+      console.error('Poll creation failed:', err);
+      setCreationState('idle');
+      
+      if (err.message.includes('Web3 connection')) {
+        setError('Web3 connection required. Please check your wallet.');
+      } else if (err.message.includes('Invalid poll creation')) {
+        setError('Onchain verification failed. Please try again.');
+      } else {
+        setError('Poll creation failed. Please try again.');
+      }
     }
   };
 
@@ -144,6 +178,17 @@ export default function CreatePoll() {
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
+
+        {creationState !== 'idle' && (
+          <div className="px-4 py-2">
+            <p className="text-forest-600 text-sm">
+              {creationState === 'creating' && 'Creating poll...'}
+              {creationState === 'onchain' && 'Creating poll onchain...'}
+              {creationState === 'verifying' && 'Verifying transaction...'}
+              {creationState === 'complete' && 'Poll created successfully!'}
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
@@ -152,9 +197,9 @@ export default function CreatePoll() {
             size="medium" 
             className="flex-1" 
             onClick={handleCreatePoll}
-            disabled={isCreating}
+            disabled={creationState !== 'idle'}
           >
-            {isCreating ? 'Creating...' : 'Create Poll'}
+            {creationState !== 'idle' ? 'Creating...' : 'Create Poll'}
           </Button>
         </div>
         <div className="h-5 bg-mint-50"></div>

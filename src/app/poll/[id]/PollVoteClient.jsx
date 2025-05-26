@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { RadioOption } from '@/components/ui/RadioGroup';
@@ -8,45 +8,94 @@ import { VoteTransaction } from '@/components/ui/VoteTransaction';
 import { ShareModal } from '@/components/ui/ShareModal';
 import { pollsApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useWeb3 } from '@/lib/web3Context';
 
 export function PollVoteClient({ poll, votes }) {
   const router = useRouter();
-  const { getAuthHeaders, isAuthenticated } = useAuth();
+  const { getAuthHeaders, isAuthenticated, user } = useAuth();
+  const { pollsContract, isConnected } = useWeb3();
   const [selectedOption, setSelectedOption] = useState(0);
-  const [isVoting, setIsVoting] = useState(false);
+  const [votingState, setVotingState] = useState('idle'); 
+  // States: idle, onchain, confirming, complete
   const [error, setError] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [userVote, setUserVote] = useState(null);
 
+  // Check if user has already voted (use database, not onchain)
+  useEffect(() => {
+    const checkVotingStatus = async () => {
+      if (!user) return;
+      
+      try {
+        // Use existing API to check if user voted
+        const response = await fetch(`/api/polls/${poll.id}/user-vote?fid=${user.fid}`);
+        if (response.ok) {
+          const data = await response.json();
+          setHasVoted(data.hasVoted);
+        }
+      } catch (error) {
+        console.error('Failed to check voting status:', error);
+      }
+    };
+
+    checkVotingStatus();
+  }, [user, poll.id]);
+
   const handleVote = async () => {
     setError('');
-    setIsVoting(true);
     
+    if (!isAuthenticated) {
+      setError('Authentication required to vote');
+      return;
+    }
+
+    if (!isConnected || !pollsContract) {
+      setError('Web3 connection required for onchain voting');
+      return;
+    }
+
     try {
-      if (!isAuthenticated) {
-        setError('Authentication required to vote');
-        return;
-      }
+      // Get user profile for FID
+      const profileResponse = await pollsApi.getUserProfile(getAuthHeaders());
+      const userFid = profileResponse.user.fid;
 
-      const voteData = {
-        option_index: selectedOption
-      };
+      // Step 1: Submit vote to smart contract (Base is cheap!)
+      setVotingState('onchain');
+      const txHash = await pollsContract.submitVote(
+        poll.id,
+        selectedOption,
+        userFid
+      );
 
-      const response = await pollsApi.vote(poll.id, voteData, getAuthHeaders());
-      
-      // Store vote data for sharing
+      // Step 2: Confirm transaction in database
+      setVotingState('confirming');
+      await pollsApi.voteWithTransaction(poll.id, {
+        optionIndex: selectedOption
+      }, txHash, getAuthHeaders());
+
+      setVotingState('complete');
       setHasVoted(true);
       setUserVote({ option_index: selectedOption });
       
-      // Show share modal after successful vote
+      // Show share modal (existing functionality)
       setShowShareModal(true);
-      
+
     } catch (err) {
-      console.error('Error voting:', err);
-      setError('Failed to submit vote. Please try again.');
-    } finally {
-      setIsVoting(false);
+      console.error('Voting failed:', err);
+      setVotingState('idle');
+      
+      if (err.message.includes('AlreadyVoted')) {
+        setError('You have already voted on this poll.');
+        setHasVoted(true);
+        return;
+      }
+      
+      if (err.message.includes('Web3 connection')) {
+        setError('Web3 connection required. Please check your wallet.');
+      } else {
+        setError('Vote submission failed. Please try again.');
+      }
     }
   };
 
@@ -93,15 +142,30 @@ export function PollVoteClient({ poll, votes }) {
           size="small" 
           className="flex-1" 
           onClick={handleVote}
-          disabled={isVoting || poll.status === 'expired' || !isAuthenticated}
+          disabled={votingState !== 'idle' || poll.status === 'expired' || !isAuthenticated || hasVoted}
         >
-          {isVoting ? 'Voting...' : poll.status === 'expired' ? 'Poll Expired' : !isAuthenticated ? 'Authentication Required' : 'Vote'}
+          {votingState === 'onchain' ? 'Submitting onchain...' : 
+           votingState === 'confirming' ? 'Confirming...' : 
+           votingState === 'complete' ? 'Vote submitted!' : 
+           hasVoted ? 'Already Voted' :
+           poll.status === 'expired' ? 'Poll Expired' : 
+           !isAuthenticated ? 'Authentication Required' : 'Vote'}
         </Button>
       </div>
 
       {error && (
         <div className="px-4 py-2">
           <p className="text-red-600 text-sm text-center">{error}</p>
+        </div>
+      )}
+
+      {votingState !== 'idle' && (
+        <div className="px-4 py-2">
+          <p className="text-forest-600 text-sm text-center">
+            {votingState === 'onchain' && 'Submitting vote onchain...'}
+            {votingState === 'confirming' && 'Confirming transaction...'}
+            {votingState === 'complete' && 'Vote submitted successfully!'}
+          </p>
         </div>
       )}
 
@@ -124,11 +188,6 @@ export function PollVoteClient({ poll, votes }) {
         </Button>
       </div>
 
-      {isVoting && (
-        <p className="text-forest-600 text-sm font-normal leading-normal pb-3 pt-1 px-4 text-center">
-          Voting onchain...
-        </p>
-      )}
 
       <h3 className="text-forest-900 text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">
         Vote Transactions
