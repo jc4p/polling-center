@@ -30,6 +30,6 @@ export function getConfig(env) {
     isProduction: validatedEnv.ENVIRONMENT === 'production',
     corsOrigins: validatedEnv.CORS_ORIGINS.length > 0 
       ? validatedEnv.CORS_ORIGINS 
-      : ['http://localhost:3000', 'https://polling.center', 'https://*.polling.center']
+      : ['http://localhost:3000', 'https://polling.center', 'https://www.polling.center', 'https://api.polling.center']
   }
 }

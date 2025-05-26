@@ -249,6 +249,9 @@ pollsRouter.post('/:id/verify', async (c) => {
 
     // Verify onchain poll creation transaction
     console.log(`Verifying poll creation transaction for poll: ${pollId}`)
+    console.log(`Transaction hash: ${validData.transactionHash}`)
+    console.log(`Expected poll data: pollId=${pollId}, creatorFid=${poll.creator_fid}, duration=${poll.duration_days}, options=${options[0].count}`)
+    
     const contractAddress = c.env.POLLS_CONTRACT_ADDRESS
     if (!contractAddress) {
       return c.json({ error: 'Contract address not configured' }, 503)

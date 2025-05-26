@@ -1,5 +1,5 @@
 // Onchain verification service for poll creation and voting
-import { decodeEventLog, parseAbi } from 'viem'
+import { decodeEventLog, parseAbi, keccak256, stringToBytes } from 'viem'
 import { verifyTransactionWithRetry, isValidTransactionHash } from '../utils/blockchain.js'
 
 // Smart contract ABI for event parsing - matches deployed PollingCenter contract
@@ -59,10 +59,15 @@ export async function verifyPollCreationTransaction(
     // Parse logs to find PollCreated event
     let pollCreatedEvent = null
     
+    console.log(`📋 Transaction has ${receipt.logs.length} logs`)
+    
     for (const log of receipt.logs) {
       try {
+        console.log(`  Log from address: ${log.address}`)
+        
         // Only check logs from our contract address
         if (contractAddress && log.address.toLowerCase() !== contractAddress.toLowerCase()) {
+          console.log(`    Skipping log - wrong contract address (expected ${contractAddress})`)
           continue
         }
         
@@ -72,11 +77,14 @@ export async function verifyPollCreationTransaction(
           topics: log.topics
         })
         
+        console.log(`    Decoded event: ${decodedLog.eventName}`)
         if (decodedLog.eventName === 'PollCreated') {
+          console.log(`    Found PollCreated event with pollId: ${decodedLog.args.pollId}`)
           pollCreatedEvent = decodedLog
           break
         }
       } catch (error) {
+        console.log(`    Failed to decode log: ${error.message}`)
         // Skip logs that don't match our ABI
         continue
       }
@@ -89,15 +97,33 @@ export async function verifyPollCreationTransaction(
     // Verify event parameters match expected values
     const { pollId, creator, creatorFid, expiresAt } = pollCreatedEvent.args
     
+    console.log(`🔍 Blockchain event data:`)
+    console.log(`  pollId: ${pollId}`)
+    console.log(`  creator: ${creator}`)
+    console.log(`  creatorFid: ${creatorFid}`)
+    console.log(`  expiresAt: ${expiresAt}`)
+    console.log(`🎯 Expected data:`)
+    console.log(`  expectedPollId: ${expectedPollId}`)
+    console.log(`  expectedCreatorFid: ${expectedCreatorFid}`)
+    
     // Calculate expected expiration based on duration
     const transaction = await blockchain.getTransaction({ hash: transactionHash })
     const block = await blockchain.getBlock({ blockNumber: receipt.blockNumber })
     const expectedExpiresAt = Number(block.timestamp) + (expectedDurationDays * 24 * 60 * 60)
 
-    if (pollId !== expectedPollId) {
+    // For indexed string parameters, Solidity stores the keccak256 hash
+    // So we need to compare the hash of our expected poll ID with the event pollId
+    const expectedPollIdHash = keccak256(stringToBytes(expectedPollId))
+    
+    console.log(`🔍 Poll ID comparison:`)
+    console.log(`  Expected poll ID: ${expectedPollId}`)
+    console.log(`  Expected poll ID hash: ${expectedPollIdHash}`)
+    console.log(`  Blockchain poll ID (hash): ${pollId}`)
+
+    if (pollId !== expectedPollIdHash) {
       return { 
         verified: false, 
-        error: `Poll ID mismatch: expected ${expectedPollId}, got ${pollId}` 
+        error: `Poll ID mismatch: expected hash ${expectedPollIdHash} (from "${expectedPollId}"), got ${pollId}` 
       }
     }
 
@@ -218,10 +244,14 @@ export async function verifyVoteTransaction(
     // Verify event parameters match expected values
     const { pollId, voter, fid, optionIndex } = voteCastEvent.args
 
-    if (pollId !== expectedPollId) {
+    // For indexed string parameters, Solidity stores the keccak256 hash
+    // So we need to compare the hash of our expected poll ID with the event pollId
+    const expectedPollIdHash = keccak256(stringToBytes(expectedPollId))
+
+    if (pollId !== expectedPollIdHash) {
       return { 
         verified: false, 
-        error: `Poll ID mismatch: expected ${expectedPollId}, got ${pollId}` 
+        error: `Poll ID mismatch: expected hash ${expectedPollIdHash} (from "${expectedPollId}"), got ${pollId}` 
       }
     }
 

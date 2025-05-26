@@ -87,6 +87,12 @@ export default function CreatePoll() {
 
       // Step 2: Submit to smart contract
       setCreationState('onchain');
+      console.log('📋 About to create poll onchain with:');
+      console.log(`  Database poll ID: ${poll.id}`);
+      console.log(`  User FID: ${userFid}`);
+      console.log(`  Duration: ${parseInt(durationDays)}`);
+      console.log(`  Options count: ${validOptions.length}`);
+      
       const txHash = await pollsContract.createPoll(
         poll.id,
         userFid,
