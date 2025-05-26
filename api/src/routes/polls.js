@@ -249,13 +249,19 @@ pollsRouter.post('/:id/verify', async (c) => {
 
     // Verify onchain poll creation transaction
     console.log(`Verifying poll creation transaction for poll: ${pollId}`)
+    const contractAddress = c.env.POLLS_CONTRACT_ADDRESS
+    if (!contractAddress) {
+      return c.json({ error: 'Contract address not configured' }, 503)
+    }
+    
     const verificationResult = await verifyPollCreationTransaction(
       blockchain,
       validData.transactionHash,
       pollId,
       poll.creator_fid,
       poll.duration_days,
-      options[0].count
+      options[0].count,
+      contractAddress
     )
 
     if (!verificationResult.verified) {
@@ -385,12 +391,18 @@ pollsRouter.post('/:id/vote', async (c) => {
 
     // Verify onchain vote transaction
     console.log(`Verifying vote transaction for poll: ${pollId}`)
+    const contractAddress = c.env.POLLS_CONTRACT_ADDRESS
+    if (!contractAddress) {
+      return c.json({ error: 'Contract address not configured' }, 503)
+    }
+    
     const verificationResult = await verifyVoteTransaction(
       blockchain,
       validData.transactionHash,
       pollId,
       voterFid,
-      validData.optionIndex
+      validData.optionIndex,
+      contractAddress
     )
 
     if (!verificationResult.verified) {

@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
             setIsAuthenticated(true)
           }
         } catch (error) {
-          console.error('Auto-authentication failed:', error)
+          // Auto-authentication failed
         } finally {
           setIsLoading(false)
         }

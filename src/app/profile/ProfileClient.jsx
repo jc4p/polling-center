@@ -1,22 +1,92 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 
-export function ProfileClient({ userPolls, userVotes, user, error }) {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787/api';
+
+export function ProfileClient() {
   const [activeTab, setActiveTab] = useState('polls');
+  const [user, setUser] = useState(null);
+  const [userPolls, setUserPolls] = useState([]);
+  const [userVotes, setUserVotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { isAuthenticated, getAuthHeaders, isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    async function fetchUserData() {
+      if (!isAuthenticated || authLoading) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        
+        // Fetch user profile
+        const profileResponse = await fetch(`${API_URL}/profile`, {
+          headers: getAuthHeaders(),
+        });
+        
+        if (!profileResponse.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+        
+        const profileData = await profileResponse.json();
+        setUser(profileData.user);
+        
+        // Fetch user's polls
+        const pollsResponse = await fetch(`${API_URL}/polls?creator_fid=${profileData.user.fid}&limit=50`, {
+          headers: getAuthHeaders(),
+        });
+        
+        if (pollsResponse.ok) {
+          const pollsData = await pollsResponse.json();
+          setUserPolls(pollsData.polls || []);
+        }
+        
+        // Fetch user's votes
+        const votesResponse = await fetch(`${API_URL}/votes?voter_fid=${profileData.user.fid}&limit=50`, {
+          headers: getAuthHeaders(),
+        });
+        
+        if (votesResponse.ok) {
+          const votesData = await votesResponse.json();
+          setUserVotes(votesData.votes || []);
+        }
+        
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchUserData();
+  }, [isAuthenticated, authLoading, getAuthHeaders]);
+
+  if (authLoading || loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin w-8 h-8 border-2 border-forest-700 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-forest-600">Loading profile...</p>
+      </div>
+    );
+  }
 
   if (error) {
     return (
       <div className="text-center py-12">
         <h3 className="text-forest-900 text-lg font-medium mb-2">Unable to load profile</h3>
-        <p className="text-forest-600 mb-6">Please check if you're logged in or if the API server is running.</p>
+        <p className="text-forest-600 mb-6">Error: {error}</p>
       </div>
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated || !user) {
     return (
       <div className="text-center py-12">
         <h3 className="text-forest-900 text-lg font-medium mb-2">Not logged in</h3>

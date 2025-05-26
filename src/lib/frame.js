@@ -4,7 +4,7 @@ export async function initializeFrame() {
   const context = await frame.sdk.context
 
   if (!context || !context.user) {
-    console.log('not in frame context')
+    // Not in frame context
     return
   }
 

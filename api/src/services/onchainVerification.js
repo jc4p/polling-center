@@ -2,12 +2,12 @@
 import { decodeEventLog, parseAbi } from 'viem'
 import { verifyTransactionWithRetry, isValidTransactionHash } from '../utils/blockchain.js'
 
-// Smart contract ABI for event parsing
+// Smart contract ABI for event parsing - matches deployed PollingCenter contract
 const POLLS_CONTRACT_ABI = parseAbi([
-  'event PollCreated(string indexed pollId, uint256 indexed creatorFid, uint8 durationDays, uint8 optionCount)',
-  'event VoteCast(string indexed pollId, uint256 indexed voterFid, uint8 optionIndex)',
-  'function createPoll(string calldata pollId, uint256 creatorFid, uint8 durationDays, uint8 optionCount) external',
-  'function submitVote(string calldata pollId, uint8 optionIndex, uint256 voterFid) external'
+  'event PollCreated(string indexed pollId, address indexed creator, uint256 indexed creatorFid, uint256 expiresAt)',
+  'event VoteCast(string indexed pollId, address indexed voter, uint256 indexed fid, uint256 optionIndex)',
+  'function createPoll(string calldata pollId, uint256 creatorFid, uint256 durationDays, uint256 optionCount) external',
+  'function submitVote(string calldata pollId, uint256 optionIndex, uint256 voterFid) external'
 ])
 
 /**
@@ -18,7 +18,7 @@ const POLLS_CONTRACT_ABI = parseAbi([
  * @param {number} expectedCreatorFid - Expected creator FID
  * @param {number} expectedDurationDays - Expected duration
  * @param {number} expectedOptionCount - Expected option count
- * @param {string} contractAddress - Contract address (optional, for future use)
+ * @param {string} contractAddress - Contract address to verify transaction against
  * @returns {Promise<{verified: boolean, pollCreationData?: Object, error?: string}>}
  */
 export async function verifyPollCreationTransaction(
@@ -28,7 +28,7 @@ export async function verifyPollCreationTransaction(
   expectedCreatorFid, 
   expectedDurationDays, 
   expectedOptionCount,
-  contractAddress = null
+  contractAddress
 ) {
   try {
     if (!isValidTransactionHash(transactionHash)) {
@@ -47,6 +47,11 @@ export async function verifyPollCreationTransaction(
 
     const receipt = await blockchain.getTransactionReceipt({ hash: transactionHash })
     
+    // Verify transaction was sent to the correct contract
+    if (contractAddress && receipt.to && receipt.to.toLowerCase() !== contractAddress.toLowerCase()) {
+      return { verified: false, error: `Transaction sent to wrong contract: expected ${contractAddress}, got ${receipt.to}` }
+    }
+    
     if (!receipt.logs || receipt.logs.length === 0) {
       return { verified: false, error: 'No events found in transaction' }
     }
@@ -56,6 +61,11 @@ export async function verifyPollCreationTransaction(
     
     for (const log of receipt.logs) {
       try {
+        // Only check logs from our contract address
+        if (contractAddress && log.address.toLowerCase() !== contractAddress.toLowerCase()) {
+          continue
+        }
+        
         const decodedLog = decodeEventLog({
           abi: POLLS_CONTRACT_ABI,
           data: log.data,
@@ -77,7 +87,12 @@ export async function verifyPollCreationTransaction(
     }
 
     // Verify event parameters match expected values
-    const { pollId, creatorFid, durationDays, optionCount } = pollCreatedEvent.args
+    const { pollId, creator, creatorFid, expiresAt } = pollCreatedEvent.args
+    
+    // Calculate expected expiration based on duration
+    const transaction = await blockchain.getTransaction({ hash: transactionHash })
+    const block = await blockchain.getBlock({ blockNumber: receipt.blockNumber })
+    const expectedExpiresAt = Number(block.timestamp) + (expectedDurationDays * 24 * 60 * 60)
 
     if (pollId !== expectedPollId) {
       return { 
@@ -93,19 +108,16 @@ export async function verifyPollCreationTransaction(
       }
     }
 
-    if (Number(durationDays) !== expectedDurationDays) {
+    // Verify expiration time is within reasonable range (allow for block time variance)
+    const timeDiff = Math.abs(Number(expiresAt) - expectedExpiresAt)
+    if (timeDiff > 300) { // Allow 5 minute variance
       return { 
         verified: false, 
-        error: `Duration mismatch: expected ${expectedDurationDays}, got ${durationDays}` 
+        error: `Expiration time mismatch: expected around ${expectedExpiresAt}, got ${expiresAt}` 
       }
     }
 
-    if (Number(optionCount) !== expectedOptionCount) {
-      return { 
-        verified: false, 
-        error: `Option count mismatch: expected ${expectedOptionCount}, got ${optionCount}` 
-      }
-    }
+    // Note: optionCount is validated in the contract but not emitted in the event
 
     console.log(`✅ Poll creation verified: ${pollId}`)
 
@@ -113,9 +125,9 @@ export async function verifyPollCreationTransaction(
       verified: true,
       pollCreationData: {
         pollId: pollId,
+        creator: creator,
         creatorFid: Number(creatorFid),
-        durationDays: Number(durationDays),
-        optionCount: Number(optionCount),
+        expiresAt: Number(expiresAt),
         blockNumber: Number(receipt.blockNumber),
         blockHash: receipt.blockHash,
         transactionHash: receipt.transactionHash,
@@ -136,7 +148,7 @@ export async function verifyPollCreationTransaction(
  * @param {string} expectedPollId - Expected poll ID
  * @param {number} expectedVoterFid - Expected voter FID
  * @param {number} expectedOptionIndex - Expected option index
- * @param {string} contractAddress - Contract address (optional, for future use)
+ * @param {string} contractAddress - Contract address to verify transaction against
  * @returns {Promise<{verified: boolean, voteData?: Object, error?: string}>}
  */
 export async function verifyVoteTransaction(
@@ -145,7 +157,7 @@ export async function verifyVoteTransaction(
   expectedPollId, 
   expectedVoterFid, 
   expectedOptionIndex,
-  contractAddress = null
+  contractAddress
 ) {
   try {
     if (!isValidTransactionHash(transactionHash)) {
@@ -164,6 +176,11 @@ export async function verifyVoteTransaction(
 
     const receipt = await blockchain.getTransactionReceipt({ hash: transactionHash })
     
+    // Verify transaction was sent to the correct contract
+    if (contractAddress && receipt.to && receipt.to.toLowerCase() !== contractAddress.toLowerCase()) {
+      return { verified: false, error: `Transaction sent to wrong contract: expected ${contractAddress}, got ${receipt.to}` }
+    }
+    
     if (!receipt.logs || receipt.logs.length === 0) {
       return { verified: false, error: 'No events found in transaction' }
     }
@@ -173,6 +190,11 @@ export async function verifyVoteTransaction(
     
     for (const log of receipt.logs) {
       try {
+        // Only check logs from our contract address
+        if (contractAddress && log.address.toLowerCase() !== contractAddress.toLowerCase()) {
+          continue
+        }
+        
         const decodedLog = decodeEventLog({
           abi: POLLS_CONTRACT_ABI,
           data: log.data,
@@ -194,7 +216,7 @@ export async function verifyVoteTransaction(
     }
 
     // Verify event parameters match expected values
-    const { pollId, voterFid, optionIndex } = voteCastEvent.args
+    const { pollId, voter, fid, optionIndex } = voteCastEvent.args
 
     if (pollId !== expectedPollId) {
       return { 
@@ -203,10 +225,10 @@ export async function verifyVoteTransaction(
       }
     }
 
-    if (Number(voterFid) !== expectedVoterFid) {
+    if (Number(fid) !== expectedVoterFid) {
       return { 
         verified: false, 
-        error: `Voter FID mismatch: expected ${expectedVoterFid}, got ${voterFid}` 
+        error: `Voter FID mismatch: expected ${expectedVoterFid}, got ${fid}` 
       }
     }
 
@@ -217,13 +239,14 @@ export async function verifyVoteTransaction(
       }
     }
 
-    console.log(`✅ Vote verified: ${pollId} - option ${optionIndex} by FID ${voterFid}`)
+    console.log(`✅ Vote verified: ${pollId} - option ${optionIndex} by FID ${fid}`)
 
     return {
       verified: true,
       voteData: {
         pollId: pollId,
-        voterFid: Number(voterFid),
+        voter: voter,
+        voterFid: Number(fid),
         optionIndex: Number(optionIndex),
         blockNumber: Number(receipt.blockNumber),
         blockHash: receipt.blockHash,
