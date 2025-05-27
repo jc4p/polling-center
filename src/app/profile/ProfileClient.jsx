@@ -39,7 +39,7 @@ export function ProfileClient() {
         setUser(profileData.user);
         
         // Fetch user's polls
-        const pollsResponse = await fetch(`${API_URL}/polls?creator_fid=${profileData.user.fid}&limit=50`, {
+        const pollsResponse = await fetch(`${API_URL}/polls?creator_fid=${profileData.user.fid}&limit=50&status=all`, {
           headers: getAuthHeaders(),
         });
         
